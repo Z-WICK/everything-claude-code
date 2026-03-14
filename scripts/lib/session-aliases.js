@@ -1,21 +1,21 @@
 /**
- * Session Aliases Library for Claude Code
- * Manages session aliases stored in ~/.claude/session-aliases.json
+ * Session Aliases Library for ECC runtimes
+ * Manages session aliases stored in the runtime-specific ECC alias store
  */
 
 const fs = require('fs');
 const path = require('path');
 
 const {
-  getClaudeDir,
   ensureDir,
   readFile,
   log
 } = require('./utils');
+const { getRuntimeAliasesPath } = require('./runtime-paths');
 
 // Aliases file path
 function getAliasesPath() {
-  return path.join(getClaudeDir(), 'session-aliases.json');
+  return getRuntimeAliasesPath();
 }
 
 // Current alias storage format version

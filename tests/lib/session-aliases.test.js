@@ -47,6 +47,14 @@ function resetAliases() {
   }
 }
 
+function clearRequireCache(modulePath) {
+  try {
+    delete require.cache[require.resolve(modulePath)];
+  } catch {
+    // Module may not be loaded yet.
+  }
+}
+
 function runTests() {
   console.log('\n=== Testing session-aliases.js ===\n');
 
@@ -1819,6 +1827,88 @@ function runTests() {
       'Object.keys includes __proto__ from JSON.parse (normal property)');
     assert.ok(keys.includes('normal'),
       'Object.keys includes normal alias');
+  })) passed++; else failed++;
+
+  // ── Round 126: runtime-aware alias store for Factory/Droid ──
+  console.log('\nRound 126: Factory/Droid alias store:');
+  if (test('getAliasesPath uses ~/.factory/ecc/session-aliases.json when ECC_RUNTIME=factory', () => {
+    const isoHome = path.join(os.tmpdir(), `ecc-alias-factory-${Date.now()}`);
+    const savedHome = process.env.HOME;
+    const savedProfile = process.env.USERPROFILE;
+    const savedRuntime = process.env.ECC_RUNTIME;
+
+    try {
+      process.env.HOME = isoHome;
+      process.env.USERPROFILE = isoHome;
+      process.env.ECC_RUNTIME = 'factory';
+
+      clearRequireCache('../../scripts/lib/runtime-paths');
+      clearRequireCache('../../scripts/lib/session-aliases');
+      const freshAliases = require('../../scripts/lib/session-aliases');
+
+      assert.strictEqual(
+        freshAliases.getAliasesPath(),
+        path.join(isoHome, '.factory', 'ecc', 'session-aliases.json'),
+        'Factory runtime should move alias storage into ~/.factory/ecc'
+      );
+    } finally {
+      if (savedHome !== undefined) process.env.HOME = savedHome;
+      else delete process.env.HOME;
+      if (savedProfile !== undefined) process.env.USERPROFILE = savedProfile;
+      else delete process.env.USERPROFILE;
+      if (savedRuntime !== undefined) process.env.ECC_RUNTIME = savedRuntime;
+      else delete process.env.ECC_RUNTIME;
+      clearRequireCache('../../scripts/lib/runtime-paths');
+      clearRequireCache('../../scripts/lib/session-aliases');
+      fs.rmSync(isoHome, { recursive: true, force: true });
+    }
+  })) passed++; else failed++;
+
+  if (test('setAlias persists into the Factory alias store when Droid plugin env is present', () => {
+    const isoHome = path.join(os.tmpdir(), `ecc-alias-droid-${Date.now()}`);
+    const savedHome = process.env.HOME;
+    const savedProfile = process.env.USERPROFILE;
+    const savedRuntime = process.env.ECC_RUNTIME;
+    const savedDroidRoot = process.env.DROID_PLUGIN_ROOT;
+
+    try {
+      process.env.HOME = isoHome;
+      process.env.USERPROFILE = isoHome;
+      delete process.env.ECC_RUNTIME;
+      process.env.DROID_PLUGIN_ROOT = path.join(isoHome, '.factory', 'plugins', 'marketplaces', 'everything-claude-code');
+
+      clearRequireCache('../../scripts/lib/runtime-paths');
+      clearRequireCache('../../scripts/lib/session-aliases');
+      const freshAliases = require('../../scripts/lib/session-aliases');
+
+      const result = freshAliases.setAlias('factory-alias', '2026-03-14-factory02-session.tmp', 'Factory Session');
+      assert.strictEqual(result.success, true, 'setAlias should succeed under Factory runtime');
+
+      const factoryAliasesPath = path.join(isoHome, '.factory', 'ecc', 'session-aliases.json');
+      const claudeAliasesPath = path.join(isoHome, '.claude', 'session-aliases.json');
+      assert.ok(fs.existsSync(factoryAliasesPath), 'Factory alias file should be created');
+      assert.ok(!fs.existsSync(claudeAliasesPath), 'Factory runtime should not create ~/.claude/session-aliases.json');
+
+      const persisted = JSON.parse(fs.readFileSync(factoryAliasesPath, 'utf8'));
+      assert.ok(persisted.aliases['factory-alias'], 'Alias should be persisted in the Factory store');
+      assert.strictEqual(
+        persisted.aliases['factory-alias'].sessionPath,
+        '2026-03-14-factory02-session.tmp',
+        'Stored session reference should be preserved'
+      );
+    } finally {
+      if (savedHome !== undefined) process.env.HOME = savedHome;
+      else delete process.env.HOME;
+      if (savedProfile !== undefined) process.env.USERPROFILE = savedProfile;
+      else delete process.env.USERPROFILE;
+      if (savedRuntime !== undefined) process.env.ECC_RUNTIME = savedRuntime;
+      else delete process.env.ECC_RUNTIME;
+      if (savedDroidRoot !== undefined) process.env.DROID_PLUGIN_ROOT = savedDroidRoot;
+      else delete process.env.DROID_PLUGIN_ROOT;
+      clearRequireCache('../../scripts/lib/runtime-paths');
+      clearRequireCache('../../scripts/lib/session-aliases');
+      fs.rmSync(isoHome, { recursive: true, force: true });
+    }
   })) passed++; else failed++;
 
   // Summary

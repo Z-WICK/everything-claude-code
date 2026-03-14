@@ -82,11 +82,14 @@ function runTests() {
 
     assertSortedUnique(state.includedFiles, 'included command files');
     assert.ok(state.includedFiles.includes('plan.md'), 'plan.md should be mirrored into Factory');
-    assert.ok(!state.includedFiles.includes('sessions.md'), 'sessions.md should remain excluded');
+    assert.ok(state.includedFiles.includes('sessions.md'), 'sessions.md should be mirrored into Factory');
+    assert.ok(state.includedFiles.includes('save-session.md'), 'save-session.md should be mirrored into Factory');
+    assert.ok(state.includedFiles.includes('resume-session.md'), 'resume-session.md should be mirrored into Factory');
 
     const excludedByName = new Map(state.excludedCommands.map((entry) => [entry.fileName, entry.reasons]));
-    assert.ok(excludedByName.has('sessions.md'), 'sessions.md should be excluded for Factory');
-    assert.ok(excludedByName.get('sessions.md')[0].includes('session persistence'));
+    assert.ok(!excludedByName.has('sessions.md'), 'sessions.md should no longer be excluded for Factory');
+    assert.ok(!excludedByName.has('save-session.md'), 'save-session.md should no longer be excluded for Factory');
+    assert.ok(!excludedByName.has('resume-session.md'), 'resume-session.md should no longer be excluded for Factory');
 
     for (const fileName of state.includedFiles) {
       const source = sidecar.readText(sidecar.getCommandSourcePath(fileName));

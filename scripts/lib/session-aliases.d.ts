@@ -1,6 +1,6 @@
 /**
- * Session Aliases Library for Claude Code.
- * Manages named aliases for session files, stored in ~/.claude/session-aliases.json.
+ * Session Aliases Library for ECC runtimes.
+ * Manages named aliases for session files stored in the runtime-specific ECC alias store.
  */
 
 /** Internal alias storage entry */

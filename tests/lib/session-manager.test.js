@@ -39,6 +39,14 @@ function cleanup(dir) {
   }
 }
 
+function clearRequireCache(modulePath) {
+  try {
+    delete require.cache[require.resolve(modulePath)];
+  } catch {
+    // Module may not be loaded yet.
+  }
+}
+
 function runTests() {
   console.log('\n=== Testing session-manager.js ===\n');
 
@@ -2605,6 +2613,128 @@ file.ts
     const meta6 = sessionManager.parseSessionMetadata(tabTitle);
     assert.strictEqual(meta6.title, 'Tab Title',
       'Tab after # matches \\s+ (\\s includes \\t)');
+  })) passed++; else failed++;
+
+  // ── Round 126: runtime-aware session store for Factory/Droid ──
+  console.log('\nRound 126: runtime-aware session store (Factory/Droid):');
+  if (test('getSessionPath uses ~/.factory/ecc/sessions when ECC_RUNTIME=factory', () => {
+    const tmpDir = createTempSessionDir();
+    const origHome = process.env.HOME;
+    const origUserProfile = process.env.USERPROFILE;
+    const origRuntime = process.env.ECC_RUNTIME;
+
+    try {
+      process.env.HOME = tmpDir;
+      process.env.USERPROFILE = tmpDir;
+      process.env.ECC_RUNTIME = 'factory';
+
+      clearRequireCache('../../scripts/lib/runtime-paths');
+      clearRequireCache('../../scripts/lib/session-manager');
+      const freshSM = require('../../scripts/lib/session-manager');
+
+      const sessionPath = freshSM.getSessionPath('2026-03-14-factory01-session.tmp');
+      assert.strictEqual(
+        sessionPath,
+        path.join(tmpDir, '.factory', 'ecc', 'sessions', '2026-03-14-factory01-session.tmp'),
+        'Factory runtime should resolve the session path into ~/.factory/ecc/sessions'
+      );
+    } finally {
+      if (origHome !== undefined) process.env.HOME = origHome;
+      else delete process.env.HOME;
+      if (origUserProfile !== undefined) process.env.USERPROFILE = origUserProfile;
+      else delete process.env.USERPROFILE;
+      if (origRuntime !== undefined) process.env.ECC_RUNTIME = origRuntime;
+      else delete process.env.ECC_RUNTIME;
+      clearRequireCache('../../scripts/lib/runtime-paths');
+      clearRequireCache('../../scripts/lib/session-manager');
+      cleanup(tmpDir);
+    }
+  })) passed++; else failed++;
+
+  if (test('getAllSessions reads Factory summaries when Droid plugin env is present', () => {
+    const tmpDir = createTempSessionDir();
+    const factorySessionsDir = path.join(tmpDir, '.factory', 'ecc', 'sessions');
+    const origHome = process.env.HOME;
+    const origUserProfile = process.env.USERPROFILE;
+    const origDroidRoot = process.env.DROID_PLUGIN_ROOT;
+    const origRuntime = process.env.ECC_RUNTIME;
+
+    try {
+      fs.mkdirSync(factorySessionsDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(factorySessionsDir, '2026-03-14-factory01-session.tmp'),
+        '# Factory Session\n\nHello from Droid runtime\n'
+      );
+
+      process.env.HOME = tmpDir;
+      process.env.USERPROFILE = tmpDir;
+      delete process.env.ECC_RUNTIME;
+      process.env.DROID_PLUGIN_ROOT = path.join(tmpDir, '.factory', 'plugins', 'marketplaces', 'everything-claude-code');
+
+      clearRequireCache('../../scripts/lib/runtime-paths');
+      clearRequireCache('../../scripts/lib/session-manager');
+      const freshSM = require('../../scripts/lib/session-manager');
+
+      const result = freshSM.getAllSessions();
+      assert.strictEqual(result.sessions.length, 1, 'Factory runtime should read the sidecar session store');
+      assert.ok(
+        result.sessions[0].sessionPath.startsWith(factorySessionsDir),
+        'Returned sessionPath should point at ~/.factory/ecc/sessions'
+      );
+      assert.ok(
+        !fs.existsSync(path.join(tmpDir, '.claude', 'sessions')),
+        'Reading Factory sessions should not require ~/.claude/sessions'
+      );
+    } finally {
+      if (origHome !== undefined) process.env.HOME = origHome;
+      else delete process.env.HOME;
+      if (origUserProfile !== undefined) process.env.USERPROFILE = origUserProfile;
+      else delete process.env.USERPROFILE;
+      if (origDroidRoot !== undefined) process.env.DROID_PLUGIN_ROOT = origDroidRoot;
+      else delete process.env.DROID_PLUGIN_ROOT;
+      if (origRuntime !== undefined) process.env.ECC_RUNTIME = origRuntime;
+      else delete process.env.ECC_RUNTIME;
+      clearRequireCache('../../scripts/lib/runtime-paths');
+      clearRequireCache('../../scripts/lib/session-manager');
+      cleanup(tmpDir);
+    }
+  })) passed++; else failed++;
+
+  if (test('getSessionById accepts an absolute session path in addition to IDs', () => {
+    const tmpDir = createTempSessionDir();
+    const sessionsDir = path.join(tmpDir, '.factory', 'ecc', 'sessions');
+    const sessionPath = path.join(sessionsDir, '2026-03-14-factory02-session.tmp');
+    const origHome = process.env.HOME;
+    const origUserProfile = process.env.USERPROFILE;
+    const origRuntime = process.env.ECC_RUNTIME;
+
+    try {
+      fs.mkdirSync(sessionsDir, { recursive: true });
+      fs.writeFileSync(sessionPath, '# Absolute Path Session\n\nLoaded from an absolute path.\n');
+
+      process.env.HOME = tmpDir;
+      process.env.USERPROFILE = tmpDir;
+      process.env.ECC_RUNTIME = 'factory';
+
+      clearRequireCache('../../scripts/lib/runtime-paths');
+      clearRequireCache('../../scripts/lib/session-manager');
+      const freshSM = require('../../scripts/lib/session-manager');
+
+      const result = freshSM.getSessionById(sessionPath, true);
+      assert.ok(result, 'Absolute session path should resolve to a session');
+      assert.strictEqual(result.filename, '2026-03-14-factory02-session.tmp');
+      assert.ok(result.content.includes('Loaded from an absolute path.'));
+    } finally {
+      if (origHome !== undefined) process.env.HOME = origHome;
+      else delete process.env.HOME;
+      if (origUserProfile !== undefined) process.env.USERPROFILE = origUserProfile;
+      else delete process.env.USERPROFILE;
+      if (origRuntime !== undefined) process.env.ECC_RUNTIME = origRuntime;
+      else delete process.env.ECC_RUNTIME;
+      clearRequireCache('../../scripts/lib/runtime-paths');
+      clearRequireCache('../../scripts/lib/session-manager');
+      cleanup(tmpDir);
+    }
   })) passed++; else failed++;
 
   // Summary

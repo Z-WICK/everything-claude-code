@@ -1,20 +1,21 @@
 /**
- * Session Manager Library for Claude Code
- * Provides core session CRUD operations for listing, loading, and managing sessions
+ * Session Manager Library for ECC runtimes.
+ * Provides core session CRUD operations for listing, loading, and managing sessions.
  *
- * Sessions are stored as markdown files in ~/.claude/sessions/ with format:
+ * Sessions are stored as markdown files in the runtime-specific ECC session store with format:
  * - YYYY-MM-DD-session.tmp (old format)
  * - YYYY-MM-DD-<short-id>-session.tmp (new format)
  */
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 const {
-  getSessionsDir,
   readFile,
   log
 } = require('./utils');
+const { getRuntimeSessionsDir } = require('./runtime-paths');
 
 // Session filename pattern: YYYY-MM-DD-[session-id]-session.tmp
 // The session-id is optional (old format) and can include letters, digits,
@@ -63,7 +64,7 @@ function parseSessionFilename(filename) {
  * @returns {string} Full path to session file
  */
 function getSessionPath(filename) {
-  return path.join(getSessionsDir(), filename);
+  return path.join(getRuntimeSessionsDir(), filename);
 }
 
 /**
@@ -228,7 +229,7 @@ function getAllSessions(options = {}) {
   const limitNum = Number(rawLimit);
   const limit = Number.isNaN(limitNum) ? 50 : Math.max(1, Math.floor(limitNum));
 
-  const sessionsDir = getSessionsDir();
+  const sessionsDir = getRuntimeSessionsDir();
 
   if (!fs.existsSync(sessionsDir)) {
     return { sessions: [], total: 0, offset, limit, hasMore: false };
@@ -299,7 +300,15 @@ function getAllSessions(options = {}) {
  * @returns {object|null} Session object or null if not found
  */
 function getSessionById(sessionId, includeContent = false) {
-  const sessionsDir = getSessionsDir();
+  const explicitPath = resolveExplicitSessionPath(sessionId);
+  if (explicitPath) {
+    const session = getSessionByPath(explicitPath, includeContent);
+    if (session) {
+      return session;
+    }
+  }
+
+  const sessionsDir = getRuntimeSessionsDir();
 
   if (!fs.existsSync(sessionsDir)) {
     return null;
@@ -325,26 +334,9 @@ function getSessionById(sessionId, includeContent = false) {
     }
 
     const sessionPath = path.join(sessionsDir, filename);
-    let stats;
-    try {
-      stats = fs.statSync(sessionPath);
-    } catch {
+    const session = getSessionByPath(sessionPath, includeContent);
+    if (!session) {
       return null; // File was deleted between readdir and stat
-    }
-
-    const session = {
-      ...metadata,
-      sessionPath,
-      size: stats.size,
-      modifiedTime: stats.mtime,
-      createdTime: stats.birthtime || stats.ctime
-    };
-
-    if (includeContent) {
-      session.content = getSessionContent(sessionPath);
-      session.metadata = parseSessionMetadata(session.content);
-      // Pass pre-read content to avoid a redundant disk read
-      session.stats = getSessionStats(session.content || '');
     }
 
     return session;
@@ -398,6 +390,50 @@ function writeSessionContent(sessionPath, content) {
     log(`[SessionManager] Error writing session: ${err.message}`);
     return false;
   }
+}
+
+function resolveExplicitSessionPath(sessionId) {
+  if (typeof sessionId !== 'string' || !sessionId.trim()) {
+    return null;
+  }
+
+  if (sessionId.startsWith('~/')) {
+    return path.join(os.homedir(), sessionId.slice(2));
+  }
+
+  return path.isAbsolute(sessionId) ? sessionId : null;
+}
+
+function getSessionByPath(sessionPath, includeContent = false) {
+  const filename = path.basename(sessionPath);
+  const metadata = parseSessionFilename(filename);
+
+  if (!metadata) {
+    return null;
+  }
+
+  let stats;
+  try {
+    stats = fs.statSync(sessionPath);
+  } catch {
+    return null;
+  }
+
+  const session = {
+    ...metadata,
+    sessionPath,
+    size: stats.size,
+    modifiedTime: stats.mtime,
+    createdTime: stats.birthtime || stats.ctime
+  };
+
+  if (includeContent) {
+    session.content = getSessionContent(sessionPath);
+    session.metadata = parseSessionMetadata(session.content);
+    session.stats = getSessionStats(session.content || '');
+  }
+
+  return session;
 }
 
 /**

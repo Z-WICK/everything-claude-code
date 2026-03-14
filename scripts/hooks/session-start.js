@@ -62,7 +62,7 @@ async function main() {
   }
 
   // Check for available session aliases
-  const aliases = runtime === 'claude' ? listAliases({ limit: 5 }) : [];
+  const aliases = listAliases({ limit: 5 });
 
   if (aliases.length > 0) {
     const aliasNames = aliases.map(a => a.name).join(', ');
