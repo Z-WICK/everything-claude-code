@@ -1,0 +1,12 @@
+{
+  "name": "everything-claude-code",
+  "version": "1.8.0",
+  "description": "Native Factory/Droid plugin surface for ECC's shared commands, skills, and mirrored custom droids.",
+  "author": {
+    "name": "Affaan Mustafa",
+    "url": "https://x.com/affaanmustafa"
+  },
+  "homepage": "https://github.com/affaan-m/everything-claude-code",
+  "repository": "https://github.com/affaan-m/everything-claude-code",
+  "license": "MIT"
+}

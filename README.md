@@ -814,6 +814,7 @@ Yes. ECC is cross-platform:
 - **Cursor**: Pre-translated configs in `.cursor/`. See [Cursor IDE Support](#cursor-ide-support).
 - **OpenCode**: Full plugin support in `.opencode/`. See [OpenCode Support](#-opencode-support).
 - **Codex**: First-class support for both macOS app and CLI, with adapter drift guards and SessionStart fallback. See PR [#257](https://github.com/affaan-m/everything-claude-code/pull/257).
+- **Factory / Droid**: Native `.factory-plugin/` metadata plus mirrored `droids/` generated from `agents/`, while shared `AGENTS.md`, `commands/`, and `skills/` stay repo-backed.
 - **Antigravity**: Tightly integrated setup for workflows, skills, and flatten rules in `.agent/`.
 - **Claude Code**: Native — this is the primary target.
 </details>
@@ -1119,6 +1120,25 @@ For the full ECC OpenCode setup, either:
 - **OpenCode Plugin README**: `.opencode/README.md`
 - **Consolidated Rules**: `.opencode/instructions/INSTRUCTIONS.md`
 - **LLM Documentation**: `llms.txt` (complete OpenCode docs for LLMs)
+
+---
+
+## 🏭 Factory / Droid Support
+
+ECC now ships a native Factory/Droid plugin surface instead of relying on Claude-plugin compatibility alone.
+
+### How It Works
+
+- `.factory-plugin/plugin.json` is metadata-only, matching Factory's plugin loader expectations.
+- `droids/` mirrors every prompt in `agents/`, but rewrites the frontmatter to Factory-safe defaults (`model: inherit`, no Claude-only tool whitelist).
+- Factory reads the shared root `AGENTS.md`, `commands/`, and `skills/` directly, so common workflows like `/plan`, `/tdd`, `/code-review`, `/verify`, and `/orchestrate` remain repo-backed across harnesses.
+
+### Current Scope
+
+- Native Droid coverage now targets the shared planning, TDD, review, and orchestration workflows plus the full custom-droid catalog mirrored from `agents/`.
+- Commands that explicitly depend on `~/.claude/` or project `.claude/` storage are still Claude-centric and should be treated as harness-specific until they get dedicated rewrites.
+
+For maintainers, run `npm run sync:factory-droids` after editing `agents/*.md` to refresh the mirrored Droid prompts.
 
 ---
 
