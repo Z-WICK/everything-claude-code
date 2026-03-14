@@ -2,6 +2,10 @@
 
 Sequential agent workflow for complex tasks.
 
+## User Request
+
+$ARGUMENTS
+
 ## Usage
 
 `/orchestrate [workflow-type] [task-description]`

@@ -4,6 +4,10 @@ description: Restate requirements, assess risks, and create step-by-step impleme
 
 # Plan Command
 
+## User Request
+
+$ARGUMENTS
+
 This command invokes the **planner** agent to create a comprehensive implementation plan before writing any code.
 
 ## What This Command Does
