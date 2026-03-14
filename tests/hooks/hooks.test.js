@@ -1879,6 +1879,31 @@ async function runTests() {
   else failed++;
 
   if (
+    test('SessionStart resolver flushes warning/output before exit', () => {
+      const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
+      const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
+      const command = hooks.hooks.SessionStart[0].hooks[0].command;
+      const base64Match = command.match(/Buffer\.from\('([^']+)'/);
+
+      assert.ok(base64Match, 'SessionStart resolver should inline a base64-encoded script');
+
+      const resolver = Buffer.from(base64Match[1], 'base64').toString('utf8');
+
+      assert.ok(/const flushAndExit =/.test(resolver), 'Resolver should flush stdio through a helper before exiting');
+      assert.ok(
+        /flushAndExit\(0,\s*'',\s*'\[SessionStart\] WARNING: could not resolve ECC plugin root; skipping session-start hook\\n'\)/.test(resolver),
+        'Resolver should flush the missing-root warning before exiting'
+      );
+      assert.ok(
+        /flushAndExit\(\s*Number\.isInteger\(result\.status\) \? result\.status : 0,\s*result\.stdout \|\| '',\s*result\.stderr \|\| ''\s*\)/.test(resolver),
+        'Resolver should flush child process output before exiting'
+      );
+    })
+  )
+    passed++;
+  else failed++;
+
+  if (
     test('InsAIts hook is opt-in and scoped to high-signal tool inputs', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
       const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
