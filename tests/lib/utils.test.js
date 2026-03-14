@@ -903,6 +903,14 @@ function runTests() {
     assert.deepStrictEqual(JSON.parse(result), {});
   })) passed++; else failed++;
 
+  if (test('readStdinJson truncates a single oversized stdin chunk to maxSize', () => {
+    const { execFileSync } = require('child_process');
+    const script = 'const u=require("./scripts/lib/utils");u.readStdinJson({timeoutMs:2000,maxSize:100}).then(d=>{process.stdout.write(JSON.stringify(d))})';
+    const oversizedSingleChunk = '{"k":"' + 'X'.repeat(140) + '"}';
+    const result = execFileSync('node', ['-e', script], { ...stdinOpts, input: oversizedSingleChunk });
+    assert.deepStrictEqual(JSON.parse(result), {});
+  })) passed++; else failed++;
+
   if (test('readStdinJson with maxSize large enough preserves valid JSON', () => {
     const { execFileSync } = require('child_process');
     const script = 'const u=require("./scripts/lib/utils");u.readStdinJson({timeoutMs:2000,maxSize:1024}).then(d=>{process.stdout.write(JSON.stringify(d))})';

@@ -232,7 +232,8 @@ async function readStdinJson(options = {}) {
     process.stdin.setEncoding('utf8');
     process.stdin.on('data', chunk => {
       if (data.length < maxSize) {
-        data += chunk;
+        const remaining = maxSize - data.length;
+        data += chunk.slice(0, remaining);
       }
     });
 

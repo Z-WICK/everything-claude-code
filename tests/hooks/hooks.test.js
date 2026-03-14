@@ -1833,8 +1833,10 @@ async function runTests() {
               const isNode = hook.command.startsWith('node');
               const isSkillScript = hook.command.includes('/skills/') && (/^(bash|sh)\s/.test(hook.command) || hook.command.startsWith('${CLAUDE_PLUGIN_ROOT}/skills/'));
               const isHookShellWrapper = /^(bash|sh)\s+["']?\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/hooks\/run-with-flags-shell\.sh/.test(hook.command);
-              const isSessionStartFallback = hook.command.startsWith('bash -lc') && hook.command.includes('run-with-flags.js');
-              assert.ok(isNode || isSkillScript || isHookShellWrapper || isSessionStartFallback, `Hook command should use node or approved shell wrapper: ${hook.command.substring(0, 100)}...`);
+              const isSessionStartResolver = hook.command.includes('session:start')
+                && hook.command.includes('could not resolve ECC plugin root')
+                && (hook.command.startsWith('bash -lc') || hook.command.startsWith('node -e "'));
+              assert.ok(isNode || isSkillScript || isHookShellWrapper || isSessionStartResolver, `Hook command should use node or approved shell wrapper: ${hook.command.substring(0, 100)}...`);
             }
           }
         }
@@ -1849,7 +1851,7 @@ async function runTests() {
   else failed++;
 
   if (
-    test('script references use CLAUDE_PLUGIN_ROOT variable (except SessionStart fallback)', () => {
+    test('script references use CLAUDE_PLUGIN_ROOT variable (except SessionStart resolver)', () => {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
       const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
 
@@ -1858,8 +1860,10 @@ async function runTests() {
           for (const hook of entry.hooks) {
             if (hook.type === 'command' && hook.command.includes('scripts/hooks/')) {
               // Check for the literal string "${CLAUDE_PLUGIN_ROOT}" in the command
-              const isSessionStartFallback = hook.command.startsWith('bash -lc') && hook.command.includes('run-with-flags.js');
-              const hasPluginRoot = hook.command.includes('${CLAUDE_PLUGIN_ROOT}') || isSessionStartFallback;
+              const isSessionStartResolver = hook.command.includes('session:start')
+                && hook.command.includes('could not resolve ECC plugin root')
+                && (hook.command.startsWith('bash -lc') || hook.command.startsWith('node -e "'));
+              const hasPluginRoot = hook.command.includes('${CLAUDE_PLUGIN_ROOT}') || isSessionStartResolver;
               assert.ok(hasPluginRoot, `Script paths should use CLAUDE_PLUGIN_ROOT: ${hook.command.substring(0, 80)}...`);
             }
           }
