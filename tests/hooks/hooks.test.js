@@ -325,6 +325,47 @@ async function runTests() {
   else failed++;
 
   if (
+    await asyncTest('emits Factory SessionStart hookSpecificOutput JSON', async () => {
+      const isoHome = path.join(os.tmpdir(), `ecc-factory-start-${Date.now()}`);
+      const sessionsDir = path.join(isoHome, '.factory', 'ecc', 'sessions');
+      fs.mkdirSync(sessionsDir, { recursive: true });
+      fs.mkdirSync(path.join(isoHome, '.factory', 'ecc', 'skills', 'learned'), { recursive: true });
+
+      const sessionFile = path.join(sessionsDir, '2026-02-11-factory01-session.tmp');
+      fs.writeFileSync(sessionFile, '# Factory Session\n\nContinue the droid workflow.\n');
+
+      try {
+        const stdinJson = JSON.stringify({
+          hookEventName: 'SessionStart',
+          session_id: 'factory-session-12345678'
+        });
+
+        const result = await runScript(path.join(scriptsDir, 'session-start.js'), stdinJson, {
+          HOME: isoHome,
+          USERPROFILE: isoHome,
+          FACTORY_PROJECT_DIR: process.cwd()
+        });
+
+        assert.strictEqual(result.code, 0);
+        const payload = JSON.parse(result.stdout.trim());
+        assert.strictEqual(payload.hookSpecificOutput.hookEventName, 'SessionStart');
+        assert.ok(
+          payload.hookSpecificOutput.additionalContext.includes('Previous session summary'),
+          'Should inject prior session context via additionalContext'
+        );
+        assert.ok(
+          payload.hookSpecificOutput.additionalContext.includes('Continue the droid workflow'),
+          'Should include the Factory session summary content'
+        );
+      } finally {
+        fs.rmSync(isoHome, { recursive: true, force: true });
+      }
+    })
+  )
+    passed++;
+  else failed++;
+
+  if (
     await asyncTest('reports learned skills count', async () => {
       const isoHome = path.join(os.tmpdir(), `ecc-skills-start-${Date.now()}`);
       const learnedDir = path.join(isoHome, '.claude', 'skills', 'learned');
@@ -505,6 +546,40 @@ async function runTests() {
     passed++;
   else failed++;
 
+  if (
+    await asyncTest('stores Factory session summaries in the dedicated .factory sidecar', async () => {
+      const isoHome = path.join(os.tmpdir(), `ecc-factory-session-end-${Date.now()}`);
+      const factorySessionId = 'factory-session-87654321';
+      const expectedShortId = '87654321';
+
+      try {
+        const stdinJson = JSON.stringify({
+          hookEventName: 'Stop',
+          session_id: factorySessionId
+        });
+
+        const result = await runScript(path.join(scriptsDir, 'session-end.js'), stdinJson, {
+          HOME: isoHome,
+          USERPROFILE: isoHome,
+          FACTORY_PROJECT_DIR: process.cwd()
+        });
+        assert.strictEqual(result.code, 0, 'Hook should exit 0');
+
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const factorySessionFile = path.join(isoHome, '.factory', 'ecc', 'sessions', `${today}-${expectedShortId}-session.tmp`);
+        const claudeSessionFile = path.join(isoHome, '.claude', 'sessions', `${today}-${expectedShortId}-session.tmp`);
+
+        assert.ok(fs.existsSync(factorySessionFile), `Factory session file should exist: ${factorySessionFile}`);
+        assert.ok(!fs.existsSync(claudeSessionFile), 'Factory runtime should not write session summaries into ~/.claude/sessions');
+      } finally {
+        fs.rmSync(isoHome, { recursive: true, force: true });
+      }
+    })
+  )
+    passed++;
+  else failed++;
+
   // pre-compact.js tests
   console.log('\npre-compact.js:');
 
@@ -531,6 +606,30 @@ async function runTests() {
       await runScript(path.join(scriptsDir, 'pre-compact.js'));
       const logFile = path.join(os.homedir(), '.claude', 'sessions', 'compaction-log.txt');
       assert.ok(fs.existsSync(logFile), 'Compaction log should exist');
+    })
+  )
+    passed++;
+  else failed++;
+
+  if (
+    await asyncTest('writes Factory compaction logs into the dedicated sidecar', async () => {
+      const isoHome = path.join(os.tmpdir(), `ecc-factory-compact-${Date.now()}`);
+
+      try {
+        await runScript(path.join(scriptsDir, 'pre-compact.js'), '', {
+          HOME: isoHome,
+          USERPROFILE: isoHome,
+          FACTORY_PROJECT_DIR: process.cwd()
+        });
+
+        const factoryLogFile = path.join(isoHome, '.factory', 'ecc', 'sessions', 'compaction-log.txt');
+        const claudeLogFile = path.join(isoHome, '.claude', 'sessions', 'compaction-log.txt');
+
+        assert.ok(fs.existsSync(factoryLogFile), 'Factory compaction log should exist');
+        assert.ok(!fs.existsSync(claudeLogFile), 'Factory runtime should not create a Claude compaction log');
+      } finally {
+        fs.rmSync(isoHome, { recursive: true, force: true });
+      }
     })
   )
     passed++;

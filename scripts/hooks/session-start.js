@@ -15,16 +15,25 @@ const {
   findFiles,
   ensureDir,
   readFile,
+  readStdinJson,
   log,
   output
 } = require('../lib/utils');
+const {
+  detectHookRuntime,
+  getFactorySessionSummariesDir,
+  getFactoryLearnedSkillsDir
+} = require('../lib/hook-runtime');
 const { getPackageManager, getSelectionPrompt } = require('../lib/package-manager');
 const { listAliases } = require('../lib/session-aliases');
 const { detectProjectType } = require('../lib/project-detect');
 
 async function main() {
-  const sessionsDir = getSessionsDir();
-  const learnedDir = getLearnedSkillsDir();
+  const input = await readStdinJson();
+  const runtime = detectHookRuntime(input);
+  const sessionsDir = runtime === 'factory' ? getFactorySessionSummariesDir() : getSessionsDir();
+  const learnedDir = runtime === 'factory' ? getFactoryLearnedSkillsDir() : getLearnedSkillsDir();
+  const contextBlocks = [];
 
   // Ensure directories exist
   ensureDir(sessionsDir);
@@ -41,8 +50,7 @@ async function main() {
     // Read and inject the latest session content into Claude's context
     const content = readFile(latest.path);
     if (content && !content.includes('[Session context goes here]')) {
-      // Only inject if the session has actual content (not the blank template)
-      output(`Previous session summary:\n${content}`);
+      contextBlocks.push(`Previous session summary:\n${content}`);
     }
   }
 
@@ -54,7 +62,7 @@ async function main() {
   }
 
   // Check for available session aliases
-  const aliases = listAliases({ limit: 5 });
+  const aliases = runtime === 'claude' ? listAliases({ limit: 5 }) : [];
 
   if (aliases.length > 0) {
     const aliasNames = aliases.map(a => a.name).join(', ');
@@ -83,9 +91,23 @@ async function main() {
       parts.push(`frameworks: ${projectInfo.frameworks.join(', ')}`);
     }
     log(`[SessionStart] Project detected — ${parts.join('; ')}`);
-    output(`Project type: ${JSON.stringify(projectInfo)}`);
+    contextBlocks.push(`Project type: ${JSON.stringify(projectInfo)}`);
   } else {
     log('[SessionStart] No specific project type detected');
+  }
+
+  if (contextBlocks.length > 0) {
+    const context = contextBlocks.join('\n\n');
+    if (runtime === 'factory') {
+      output({
+        hookSpecificOutput: {
+          hookEventName: 'SessionStart',
+          additionalContext: context
+        }
+      });
+    } else {
+      output(context);
+    }
   }
 
   process.exit(0);

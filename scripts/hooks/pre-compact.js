@@ -18,9 +18,14 @@ const {
   appendFile,
   log
 } = require('../lib/utils');
+const {
+  detectHookRuntime,
+  getFactorySessionSummariesDir
+} = require('../lib/hook-runtime');
 
 async function main() {
-  const sessionsDir = getSessionsDir();
+  const runtime = detectHookRuntime();
+  const sessionsDir = runtime === 'factory' ? getFactorySessionSummariesDir() : getSessionsDir();
   const compactionLog = path.join(sessionsDir, 'compaction-log.txt');
 
   ensureDir(sessionsDir);

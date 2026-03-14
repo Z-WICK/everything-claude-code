@@ -246,6 +246,34 @@ async function runTests() {
     assert.ok(result.stderr.includes('[SessionStart]'), 'Should have [SessionStart] prefix');
   })) passed++; else failed++;
 
+  if (await asyncTest('SessionStart hook command does not echo raw stdin when plugin root resolution fails', async () => {
+    const tempHome = createTestDir();
+    const sessionStartCommand = hooks.hooks.SessionStart[0].hooks[0].command;
+
+    try {
+      const result = await runHookCommand(
+        sessionStartCommand,
+        {
+          hookEventName: 'SessionStart',
+          session_id: 'session-123',
+          cwd: '/tmp/project'
+        },
+        {
+          HOME: tempHome,
+          USERPROFILE: tempHome,
+          CLAUDE_PLUGIN_ROOT: '',
+          DROID_PLUGIN_ROOT: ''
+        }
+      );
+
+      assert.strictEqual(result.code, 0, 'Hook should still exit 0');
+      assert.strictEqual(result.stdout.trim(), '', 'Hook should not inject raw stdin when plugin root resolution fails');
+      assert.ok(result.stderr.includes('could not resolve ECC plugin root'), 'Hook should emit a warning to stderr');
+    } finally {
+      cleanupTestDir(tempHome);
+    }
+  })) passed++; else failed++;
+
   if (await asyncTest('PreCompact hook logs to stderr', async () => {
     const result = await runHookWithInput(path.join(scriptsDir, 'pre-compact.js'), {});
     assert.ok(result.stderr.includes('[PreCompact]'), 'Should output to stderr with prefix');

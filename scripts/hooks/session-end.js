@@ -15,14 +15,21 @@ const {
   getSessionsDir,
   getDateString,
   getTimeString,
-  getSessionIdShort,
   getProjectName,
   ensureDir,
   readFile,
+  readStdinJson,
   writeFile,
   runCommand,
   log
 } = require('../lib/utils');
+const {
+  detectHookRuntime,
+  getFactorySessionSummariesDir,
+  getHookSessionIdShort,
+  getHookTranscriptPath,
+  getHookProjectDir
+} = require('../lib/hook-runtime');
 
 const SUMMARY_START_MARKER = '<!-- ECC:SUMMARY:START -->';
 const SUMMARY_END_MARKER = '<!-- ECC:SUMMARY:END -->';
@@ -107,36 +114,22 @@ function extractSessionSummary(transcriptPath) {
   };
 }
 
-// Read hook input from stdin (Claude Code provides transcript_path via stdin JSON)
-const MAX_STDIN = 1024 * 1024;
-let stdinData = '';
-process.stdin.setEncoding('utf8');
-
-process.stdin.on('data', chunk => {
-  if (stdinData.length < MAX_STDIN) {
-    const remaining = MAX_STDIN - stdinData.length;
-    stdinData += chunk.substring(0, remaining);
+function getProjectNameForDir(projectDir) {
+  const repoRootResult = runCommand('git rev-parse --show-toplevel', { cwd: projectDir });
+  if (repoRootResult.success) {
+    return path.basename(repoRootResult.output);
   }
-});
 
-process.stdin.on('end', () => {
-  runMain();
-});
-
-function runMain() {
-  main().catch(err => {
-    console.error('[SessionEnd] Error:', err.message);
-    process.exit(0);
-  });
+  return path.basename(projectDir) || getProjectName() || 'unknown';
 }
 
-function getSessionMetadata() {
-  const branchResult = runCommand('git rev-parse --abbrev-ref HEAD');
+function getSessionMetadata(projectDir) {
+  const branchResult = runCommand('git rev-parse --abbrev-ref HEAD', { cwd: projectDir });
 
   return {
-    project: getProjectName() || 'unknown',
+    project: getProjectNameForDir(projectDir),
     branch: branchResult.success ? branchResult.output : 'unknown',
-    worktree: process.cwd()
+    worktree: projectDir
   };
 }
 
@@ -176,21 +169,15 @@ function mergeSessionHeader(content, today, currentTime, metadata) {
 }
 
 async function main() {
-  // Parse stdin JSON to get transcript_path
-  let transcriptPath = null;
-  try {
-    const input = JSON.parse(stdinData);
-    transcriptPath = input.transcript_path;
-  } catch {
-    // Fallback: try env var for backwards compatibility
-    transcriptPath = process.env.CLAUDE_TRANSCRIPT_PATH;
-  }
-
-  const sessionsDir = getSessionsDir();
+  const input = await readStdinJson();
+  const runtime = detectHookRuntime(input);
+  const transcriptPath = getHookTranscriptPath(input);
+  const projectDir = getHookProjectDir(input);
+  const sessionsDir = runtime === 'factory' ? getFactorySessionSummariesDir() : getSessionsDir();
   const today = getDateString();
-  const shortId = getSessionIdShort();
+  const shortId = getHookSessionIdShort(input);
   const sessionFile = path.join(sessionsDir, `${today}-${shortId}-session.tmp`);
-  const sessionMetadata = getSessionMetadata();
+  const sessionMetadata = getSessionMetadata(projectDir);
 
   ensureDir(sessionsDir);
 
@@ -260,6 +247,11 @@ async function main() {
 
   process.exit(0);
 }
+
+main().catch(err => {
+  console.error('[SessionEnd] Error:', err.message);
+  process.exit(0);
+});
 
 function buildSummarySection(summary) {
   let section = '## Session Summary\n\n';
