@@ -10,6 +10,7 @@ This directory is the Factory/Droid adapter layer for ECC.
   - `skills/`
 - Keep Factory-specific files isolated under `.factory/` to reduce merge conflicts
 - Regenerate managed files after upstream updates instead of hand-editing copies
+- New upstream commands are auto-discovered unless they match the sidecar's exclusion rules
 
 ## Managed Outputs
 
@@ -30,6 +31,12 @@ Validate that the sidecar is still in sync:
 
 ```bash
 node .factory/_ecc/validate.js
+```
+
+Adjust auto-discovery without editing the sync logic:
+
+```bash
+$EDITOR .factory/_ecc/config.json
 ```
 
 If upstream updates change prompt content, rerun sync instead of editing generated files directly.

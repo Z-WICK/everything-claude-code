@@ -11,11 +11,9 @@ const {
   FACTORY_DROIDS_DIR,
   FACTORY_PLANS_DIR,
   FACTORY_SKILLS_DIR,
-  MANAGED_COMMAND_FILES,
-  MANAGED_SKILL_DIRS,
-  SOURCE_AGENTS_DIR,
   buildDroidContentFromAgent,
   buildFactoryCommandFromSource,
+  discoverFactoryState,
   getAgentSourcePath,
   getCommandSourcePath,
   getCommandTargetPath,
@@ -28,9 +26,8 @@ const {
   writeText,
 } = require('./lib/factory-sidecar');
 
-function syncDroids() {
+function syncDroids(agentFiles) {
   fs.mkdirSync(FACTORY_DROIDS_DIR, { recursive: true });
-  const agentFiles = listMarkdownBasenames(SOURCE_AGENTS_DIR);
   const generated = new Set(agentFiles);
 
   for (const fileName of agentFiles) {
@@ -48,11 +45,11 @@ function syncDroids() {
   return agentFiles.length;
 }
 
-function syncCommands() {
+function syncCommands(commandFiles) {
   fs.mkdirSync(FACTORY_COMMANDS_DIR, { recursive: true });
-  const generated = new Set(MANAGED_COMMAND_FILES);
+  const generated = new Set(commandFiles);
 
-  for (const fileName of MANAGED_COMMAND_FILES) {
+  for (const fileName of commandFiles) {
     const source = readText(getCommandSourcePath(fileName));
     writeText(getCommandTargetPath(fileName), buildFactoryCommandFromSource(source));
   }
@@ -63,14 +60,14 @@ function syncCommands() {
     }
   }
 
-  return MANAGED_COMMAND_FILES.length;
+  return commandFiles.length;
 }
 
-function syncSkills() {
+function syncSkills(skillDirs) {
   fs.mkdirSync(FACTORY_SKILLS_DIR, { recursive: true });
-  const generated = new Set(MANAGED_SKILL_DIRS);
+  const generated = new Set(skillDirs);
 
-  for (const skillDir of MANAGED_SKILL_DIRS) {
+  for (const skillDir of skillDirs) {
     const source = readText(getManagedSkillSourcePath(skillDir));
     writeText(getManagedSkillTargetPath(skillDir), normalizeSkillMarkdown(source));
   }
@@ -81,7 +78,7 @@ function syncSkills() {
     }
   }
 
-  return MANAGED_SKILL_DIRS.length;
+  return skillDirs.length;
 }
 
 function ensurePlansDir() {
@@ -93,12 +90,20 @@ function ensurePlansDir() {
 }
 
 function main() {
-  const droidCount = syncDroids();
-  const commandCount = syncCommands();
-  const skillCount = syncSkills();
+  const state = discoverFactoryState();
+  const droidCount = syncDroids(state.agentFiles);
+  const commandCount = syncCommands(state.commandFiles);
+  const skillCount = syncSkills(state.skillDirs);
   ensurePlansDir();
 
   console.log(`Synced Factory sidecar: ${droidCount} droids, ${commandCount} commands, ${skillCount} skills`);
+
+  if (state.excludedCommands.length) {
+    console.log(`Skipped ${state.excludedCommands.length} Factory-incompatible commands:`);
+    for (const entry of state.excludedCommands) {
+      console.log(`- ${entry.fileName}: ${entry.reasons[0]}`);
+    }
+  }
 }
 
 main();

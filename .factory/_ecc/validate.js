@@ -11,11 +11,9 @@ const {
   FACTORY_DROIDS_DIR,
   FACTORY_PLANS_DIR,
   FACTORY_SKILLS_DIR,
-  MANAGED_COMMAND_FILES,
-  MANAGED_SKILL_DIRS,
-  SOURCE_AGENTS_DIR,
   buildDroidContentFromAgent,
   buildFactoryCommandFromSource,
+  discoverFactoryState,
   getAgentSourcePath,
   getCommandSourcePath,
   getCommandTargetPath,
@@ -34,13 +32,13 @@ function fail(message) {
   console.error(`ERROR: ${message}`);
 }
 
-function validateDroids() {
+function validateDroids(agentFiles) {
   if (!fs.existsSync(FACTORY_DROIDS_DIR)) {
     fail('Missing .factory/droids directory');
     return;
   }
 
-  for (const fileName of listMarkdownBasenames(SOURCE_AGENTS_DIR)) {
+  for (const fileName of agentFiles) {
     const targetPath = getDroidTargetPath(fileName);
     if (!fs.existsSync(targetPath)) {
       fail(`Missing Factory droid for agent: ${fileName}`);
@@ -62,20 +60,24 @@ function validateDroids() {
       fail(`.factory/droids/${fileName} should not pin Claude-only tool names`);
     }
   }
+  const actualFiles = listMarkdownBasenames(FACTORY_DROIDS_DIR);
+  if (JSON.stringify(actualFiles) !== JSON.stringify([...agentFiles].sort())) {
+    fail('.factory/droids does not match the mirrored agent set');
+  }
 }
 
-function validateCommands() {
+function validateCommands(commandFiles) {
   if (!fs.existsSync(FACTORY_COMMANDS_DIR)) {
     fail('Missing .factory/commands directory');
     return;
   }
 
   const actualFiles = listMarkdownBasenames(FACTORY_COMMANDS_DIR);
-  if (JSON.stringify(actualFiles) !== JSON.stringify([...MANAGED_COMMAND_FILES].sort())) {
+  if (JSON.stringify(actualFiles) !== JSON.stringify([...commandFiles].sort())) {
     fail('.factory/commands does not match the managed command set');
   }
 
-  for (const fileName of MANAGED_COMMAND_FILES) {
+  for (const fileName of commandFiles) {
     const targetPath = getCommandTargetPath(fileName);
     if (!fs.existsSync(targetPath)) {
       fail(`Missing Factory command: ${fileName}`);
@@ -99,18 +101,18 @@ function validateCommands() {
   }
 }
 
-function validateSkills() {
+function validateSkills(skillDirs) {
   if (!fs.existsSync(FACTORY_SKILLS_DIR)) {
     fail('Missing .factory/skills directory');
     return;
   }
 
   const actualDirs = fs.readdirSync(FACTORY_SKILLS_DIR).sort();
-  if (JSON.stringify(actualDirs) !== JSON.stringify([...MANAGED_SKILL_DIRS].sort())) {
+  if (JSON.stringify(actualDirs) !== JSON.stringify([...skillDirs].sort())) {
     fail('.factory/skills does not match the managed skill set');
   }
 
-  for (const skillDir of MANAGED_SKILL_DIRS) {
+  for (const skillDir of skillDirs) {
     const targetPath = getManagedSkillTargetPath(skillDir);
     if (!fs.existsSync(targetPath)) {
       fail(`Missing Factory skill mirror: ${skillDir}/SKILL.md`);
@@ -139,9 +141,10 @@ function validatePlansDir() {
 }
 
 function main() {
-  validateDroids();
-  validateCommands();
-  validateSkills();
+  const state = discoverFactoryState();
+  validateDroids(state.agentFiles);
+  validateCommands(state.commandFiles);
+  validateSkills(state.skillDirs);
   validatePlansDir();
 
   if (hasErrors) {
