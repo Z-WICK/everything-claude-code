@@ -6,6 +6,10 @@ command: true
 
 # Evolve Command
 
+## User Request
+
+$ARGUMENTS
+
 ## Implementation
 
 Run the instinct CLI using the plugin root path:

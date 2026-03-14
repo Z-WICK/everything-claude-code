@@ -5,6 +5,10 @@ disable-model-invocation: true
 
 # Package Manager Setup
 
+## User Request
+
+$ARGUMENTS
+
 Configure your preferred package manager for this project or globally.
 
 ## Usage

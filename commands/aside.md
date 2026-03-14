@@ -4,6 +4,10 @@ description: Answer a quick side question without interrupting or losing context
 
 # Aside Command
 
+## User Request
+
+$ARGUMENTS
+
 Ask a question mid-task and get an immediate, focused answer — then continue right where you left off. The current task, files, and context are never modified.
 
 ## When to Use

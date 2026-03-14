@@ -4,6 +4,10 @@ description: Enforce TDD workflow for Kotlin. Write Kotest tests first, then imp
 
 # Kotlin TDD Command
 
+## User Request
+
+$ARGUMENTS
+
 This command enforces test-driven development methodology for Kotlin code using Kotest, MockK, and Kover.
 
 ## What This Command Does

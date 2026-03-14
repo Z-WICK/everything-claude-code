@@ -1,5 +1,9 @@
 # Test Coverage
 
+## User Request
+
+$ARGUMENTS
+
 Analyze test coverage, identify gaps, and generate missing tests to reach 80%+ coverage.
 
 ## Step 1: Detect Test Framework

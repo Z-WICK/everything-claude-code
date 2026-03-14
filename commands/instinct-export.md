@@ -6,6 +6,10 @@ command: /instinct-export
 
 # Instinct Export Command
 
+## User Request
+
+$ARGUMENTS
+
 Exports instincts to a shareable format. Perfect for:
 - Sharing with teammates
 - Transferring to a new machine

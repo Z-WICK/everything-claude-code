@@ -1,5 +1,9 @@
 # /learn - Extract Reusable Patterns
 
+## User Request
+
+$ARGUMENTS
+
 Analyze the current session and extract any patterns worth saving as skills.
 
 ## Trigger

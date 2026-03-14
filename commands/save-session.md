@@ -4,6 +4,10 @@ description: Save current session state to a dated file in ~/.claude/sessions/ s
 
 # Save Session Command
 
+## User Request
+
+$ARGUMENTS
+
 Capture everything that happened in this session — what was built, what worked, what failed, what's left — and write it to a dated file so the next session can pick up exactly where this one left off.
 
 ## When to Use

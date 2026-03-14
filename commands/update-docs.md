@@ -1,5 +1,9 @@
 # Update Documentation
 
+## User Request
+
+$ARGUMENTS
+
 Sync documentation with the codebase, generating from source-of-truth files.
 
 ## Step 1: Identify Sources of Truth

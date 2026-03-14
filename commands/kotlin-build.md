@@ -4,6 +4,10 @@ description: Fix Kotlin/Gradle build errors, compiler warnings, and dependency i
 
 # Kotlin Build and Fix
 
+## User Request
+
+$ARGUMENTS
+
 This command invokes the **kotlin-build-resolver** agent to incrementally fix Kotlin build errors with minimal changes.
 
 ## What This Command Does

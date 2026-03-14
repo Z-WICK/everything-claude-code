@@ -4,6 +4,10 @@ description: Generate and run end-to-end tests with Playwright. Creates test jou
 
 # E2E Command
 
+## User Request
+
+$ARGUMENTS
+
 This command invokes the **e2e-runner** agent to generate, maintain, and execute end-to-end tests using Playwright.
 
 ## What This Command Does

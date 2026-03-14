@@ -4,6 +4,10 @@ description: Start NanoClaw v2 — ECC's persistent, zero-dependency REPL with m
 
 # Claw Command
 
+## User Request
+
+$ARGUMENTS
+
 Start an interactive AI agent session with persistent markdown history and operational controls.
 
 ## Usage

@@ -4,6 +4,10 @@ description: Fix Gradle build errors for Android and KMP projects
 
 # Gradle Build Fix
 
+## User Request
+
+$ARGUMENTS
+
 Incrementally fix Gradle build and compilation errors for Android and Kotlin Multiplatform projects.
 
 ## Step 1: Detect Build Configuration

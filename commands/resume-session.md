@@ -4,6 +4,10 @@ description: Load the most recent session file from ~/.claude/sessions/ and resu
 
 # Resume Session Command
 
+## User Request
+
+$ARGUMENTS
+
 Load the last saved session state and orient fully before doing any work.
 This command is the counterpart to `/save-session`.
 

@@ -1,5 +1,9 @@
 # Code Review
 
+## User Request
+
+$ARGUMENTS
+
 Comprehensive security and quality review of uncommitted changes:
 
 1. Get changed files: git diff --name-only HEAD

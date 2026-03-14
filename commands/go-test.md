@@ -4,6 +4,10 @@ description: Enforce TDD workflow for Go. Write table-driven tests first, then i
 
 # Go TDD Command
 
+## User Request
+
+$ARGUMENTS
+
 This command enforces test-driven development methodology for Go code using idiomatic Go testing patterns.
 
 ## What This Command Does

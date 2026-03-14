@@ -4,6 +4,10 @@ description: Comprehensive Kotlin code review for idiomatic patterns, null safet
 
 # Kotlin Code Review
 
+## User Request
+
+$ARGUMENTS
+
 This command invokes the **kotlin-reviewer** agent for comprehensive Kotlin-specific code review.
 
 ## What This Command Does

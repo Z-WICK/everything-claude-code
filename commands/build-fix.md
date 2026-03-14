@@ -1,5 +1,9 @@
 # Build and Fix
 
+## User Request
+
+$ARGUMENTS
+
 Incrementally fix build and type errors with minimal, safe changes.
 
 ## Step 1: Detect Build System

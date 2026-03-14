@@ -1,5 +1,9 @@
 # Refactor Clean
 
+## User Request
+
+$ARGUMENTS
+
 Safely identify and remove dead code with test verification at every step.
 
 ## Step 1: Detect Dead Code

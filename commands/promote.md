@@ -6,6 +6,10 @@ command: true
 
 # Promote Command
 
+## User Request
+
+$ARGUMENTS
+
 Promote instincts from project scope to global scope in continuous-learning-v2.
 
 ## Implementation

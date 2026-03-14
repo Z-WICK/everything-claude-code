@@ -1,5 +1,9 @@
 # Update Codemaps
 
+## User Request
+
+$ARGUMENTS
+
 Analyze the codebase structure and generate token-lean architecture documentation.
 
 ## Step 1: Scan Project Structure

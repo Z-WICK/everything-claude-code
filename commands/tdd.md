@@ -4,6 +4,10 @@ description: Enforce test-driven development workflow. Scaffold interfaces, gene
 
 # TDD Command
 
+## User Request
+
+$ARGUMENTS
+
 This command invokes the **tdd-guide** agent to enforce test-driven development methodology.
 
 ## What This Command Does
