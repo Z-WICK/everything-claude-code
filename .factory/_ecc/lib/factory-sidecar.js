@@ -14,18 +14,43 @@ const FACTORY_SKILLS_DIR = path.join(FACTORY_DIR, 'skills');
 const FACTORY_PLANS_DIR = path.join(FACTORY_DIR, 'plans');
 
 const MANAGED_COMMAND_FILES = [
-  'plan.md',
-  'tdd.md',
+  'aside.md',
+  'build-fix.md',
   'code-review.md',
-  'verify.md',
+  'e2e.md',
+  'go-build.md',
+  'go-review.md',
+  'go-test.md',
+  'gradle-build.md',
+  'harness-audit.md',
+  'instinct-export.md',
+  'kotlin-build.md',
+  'kotlin-review.md',
+  'kotlin-test.md',
+  'loop-status.md',
+  'model-route.md',
   'orchestrate.md',
+  'plan.md',
+  'python-review.md',
+  'quality-gate.md',
+  'refactor-clean.md',
+  'skill-create.md',
+  'tdd.md',
+  'test-coverage.md',
+  'update-codemaps.md',
+  'update-docs.md',
+  'verify.md',
 ];
 
 const MANAGED_SKILL_DIRS = [
   'e2e-testing',
+  'eval-harness',
   'golang-patterns',
+  'golang-testing',
   'kotlin-patterns',
+  'kotlin-testing',
   'python-patterns',
+  'python-testing',
   'security-review',
   'tdd-workflow',
 ];
@@ -110,6 +135,65 @@ function normalizeCommandMarkdown(markdown) {
     .replace(/\r\n/g, '\n');
 }
 
+function splitOptionalFrontmatter(markdown) {
+  const match = markdown.match(AGENT_FRONTMATTER_PATTERN);
+  if (!match) {
+    return { frontmatter: null, body: markdown };
+  }
+
+  return {
+    frontmatter: match[1],
+    body: markdown.slice(match[0].length),
+  };
+}
+
+function ensureFrontmatterField(frontmatter, key, value) {
+  if (!frontmatter) {
+    return `${key}: ${value}`;
+  }
+
+  const pattern = new RegExp(`^${key}:`, 'm');
+  if (pattern.test(frontmatter)) {
+    return frontmatter;
+  }
+
+  return `${frontmatter}\n${key}: ${value}`;
+}
+
+function buildFactoryCommandFromSource(commandMarkdown) {
+  const normalized = normalizeCommandMarkdown(commandMarkdown);
+  const { frontmatter, body } = splitOptionalFrontmatter(normalized);
+  const trimmedBody = body.trim();
+
+  if (trimmedBody.includes('$ARGUMENTS')) {
+    if (!frontmatter) {
+      return `${trimmedBody}\n`;
+    }
+
+    return `---\n${frontmatter}\n---\n\n${trimmedBody}\n`;
+  }
+
+  const bridgedFrontmatter = frontmatter
+    ? ensureFrontmatterField(frontmatter, 'argument-hint', '"[task description]"')
+    : null;
+
+  const bridgedBody = [
+    '## User Request',
+    '',
+    '$ARGUMENTS',
+    '',
+    '## Canonical ECC Workflow',
+    '',
+    trimmedBody,
+  ].join('\n');
+
+  if (!bridgedFrontmatter) {
+    return `${bridgedBody}\n`;
+  }
+
+  return `---\n${bridgedFrontmatter}\n---\n\n${bridgedBody}\n`;
+}
+
 function normalizeSkillMarkdown(markdown) {
   return markdown
     .replace(/`CLAUDE\.md`/g, '`AGENTS.md`')
@@ -153,6 +237,7 @@ module.exports = {
   ROOT_DIR,
   SOURCE_AGENTS_DIR,
   buildDroidContentFromAgent,
+  buildFactoryCommandFromSource,
   getAgentSourcePath,
   getCommandSourcePath,
   getCommandTargetPath,

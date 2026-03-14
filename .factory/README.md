@@ -14,7 +14,7 @@ This directory is the Factory/Droid adapter layer for ECC.
 ## Managed Outputs
 
 - `.factory/droids/` mirrors `agents/`
-- `.factory/commands/` mirrors the core shared workflows used in Droid
+- `.factory/commands/` mirrors the shared workflows used in Droid and preserves slash-command arguments via `$ARGUMENTS`
 - `.factory/skills/` mirrors only the skills referenced by the mirrored droids
 - `.factory/plans/` is reserved for Factory-side plan artifacts and examples
 

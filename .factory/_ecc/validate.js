@@ -10,10 +10,12 @@ const {
   FACTORY_COMMANDS_DIR,
   FACTORY_DROIDS_DIR,
   FACTORY_PLANS_DIR,
+  FACTORY_SKILLS_DIR,
   MANAGED_COMMAND_FILES,
   MANAGED_SKILL_DIRS,
   SOURCE_AGENTS_DIR,
   buildDroidContentFromAgent,
+  buildFactoryCommandFromSource,
   getAgentSourcePath,
   getCommandSourcePath,
   getCommandTargetPath,
@@ -21,7 +23,6 @@ const {
   getManagedSkillSourcePath,
   getManagedSkillTargetPath,
   listMarkdownBasenames,
-  normalizeCommandMarkdown,
   normalizeSkillMarkdown,
   readText,
 } = require('./lib/factory-sidecar');
@@ -69,6 +70,11 @@ function validateCommands() {
     return;
   }
 
+  const actualFiles = listMarkdownBasenames(FACTORY_COMMANDS_DIR);
+  if (JSON.stringify(actualFiles) !== JSON.stringify([...MANAGED_COMMAND_FILES].sort())) {
+    fail('.factory/commands does not match the managed command set');
+  }
+
   for (const fileName of MANAGED_COMMAND_FILES) {
     const targetPath = getCommandTargetPath(fileName);
     if (!fs.existsSync(targetPath)) {
@@ -76,7 +82,7 @@ function validateCommands() {
       continue;
     }
 
-    const expected = normalizeCommandMarkdown(readText(getCommandSourcePath(fileName)));
+    const expected = buildFactoryCommandFromSource(readText(getCommandSourcePath(fileName)));
     const actual = readText(targetPath);
 
     if (actual !== expected) {
@@ -86,10 +92,24 @@ function validateCommands() {
     if (actual.includes('~/.claude/') || actual.includes('.claude/')) {
       fail(`.factory/commands/${fileName} still contains Claude-only storage paths`);
     }
+
+    if (!actual.includes('$ARGUMENTS')) {
+      fail(`.factory/commands/${fileName} must expose $ARGUMENTS to preserve slash-command input`);
+    }
   }
 }
 
 function validateSkills() {
+  if (!fs.existsSync(FACTORY_SKILLS_DIR)) {
+    fail('Missing .factory/skills directory');
+    return;
+  }
+
+  const actualDirs = fs.readdirSync(FACTORY_SKILLS_DIR).sort();
+  if (JSON.stringify(actualDirs) !== JSON.stringify([...MANAGED_SKILL_DIRS].sort())) {
+    fail('.factory/skills does not match the managed skill set');
+  }
+
   for (const skillDir of MANAGED_SKILL_DIRS) {
     const targetPath = getManagedSkillTargetPath(skillDir);
     if (!fs.existsSync(targetPath)) {
