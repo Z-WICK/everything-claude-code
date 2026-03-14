@@ -6,10 +6,6 @@ command: true
 
 # Instinct Status Command
 
-## User Request
-
-$ARGUMENTS
-
 Shows learned instincts for the current project plus global instincts, grouped by domain.
 
 ## Implementation

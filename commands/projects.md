@@ -6,10 +6,6 @@ command: true
 
 # Projects Command
 
-## User Request
-
-$ARGUMENTS
-
 List project registry entries and per-project instinct/observation counts for continuous-learning-v2.
 
 ## Implementation
