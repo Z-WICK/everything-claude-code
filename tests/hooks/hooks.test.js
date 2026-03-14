@@ -98,6 +98,53 @@ function cleanupTestDir(testDir) {
   fs.rmSync(testDir, { recursive: true, force: true });
 }
 
+function getHookCommandText(command) {
+  return Array.isArray(command) ? command.join(' ') : command;
+}
+
+function isNodeCommand(command) {
+  return Array.isArray(command) ? command[0] === 'node' : command.startsWith('node');
+}
+
+function isSkillScriptCommand(command) {
+  const commandText = getHookCommandText(command);
+  if (!commandText.includes('/skills/')) return false;
+
+  return Array.isArray(command)
+    ? command[0] === 'bash' || command[0] === 'sh' || command[0].startsWith('${CLAUDE_PLUGIN_ROOT}/skills/')
+    : /^(bash|sh)\s/.test(commandText) || commandText.startsWith('${CLAUDE_PLUGIN_ROOT}/skills/');
+}
+
+function isHookShellWrapperCommand(command) {
+  if (Array.isArray(command)) {
+    return (command[0] === 'bash' || command[0] === 'sh')
+      && command.some(part => part.includes('${CLAUDE_PLUGIN_ROOT}/scripts/hooks/run-with-flags-shell.sh'));
+  }
+
+  return /^(bash|sh)\s+["']?\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/hooks\/run-with-flags-shell\.sh/.test(command);
+}
+
+function isSessionStartResolverCommand(command) {
+  const commandText = getHookCommandText(command);
+
+  return commandText.includes('session:start')
+    && commandText.includes('could not resolve ECC plugin root')
+    && (
+      Array.isArray(command)
+        ? command[0] === 'node' && command[1] === '-e'
+        : command.startsWith('bash -lc') || command.startsWith('node -e "')
+    );
+}
+
+function extractInlineNodeScript(command) {
+  if (Array.isArray(command)) {
+    return command[0] === 'node' && command[1] === '-e' ? command[2] : null;
+  }
+
+  const match = command.match(/^node -e "(.*)"$/s);
+  return match ? match[1] : null;
+}
+
 function normalizeComparablePath(targetPath) {
   if (!targetPath) return '';
 
@@ -1830,13 +1877,12 @@ async function runTests() {
         for (const entry of hookArray) {
           for (const hook of entry.hooks) {
             if (hook.type === 'command') {
-              const isNode = hook.command.startsWith('node');
-              const isSkillScript = hook.command.includes('/skills/') && (/^(bash|sh)\s/.test(hook.command) || hook.command.startsWith('${CLAUDE_PLUGIN_ROOT}/skills/'));
-              const isHookShellWrapper = /^(bash|sh)\s+["']?\$\{CLAUDE_PLUGIN_ROOT\}\/scripts\/hooks\/run-with-flags-shell\.sh/.test(hook.command);
-              const isSessionStartResolver = hook.command.includes('session:start')
-                && hook.command.includes('could not resolve ECC plugin root')
-                && (hook.command.startsWith('bash -lc') || hook.command.startsWith('node -e "'));
-              assert.ok(isNode || isSkillScript || isHookShellWrapper || isSessionStartResolver, `Hook command should use node or approved shell wrapper: ${hook.command.substring(0, 100)}...`);
+              const commandText = getHookCommandText(hook.command);
+              const isNode = isNodeCommand(hook.command);
+              const isSkillScript = isSkillScriptCommand(hook.command);
+              const isHookShellWrapper = isHookShellWrapperCommand(hook.command);
+              const isSessionStartResolver = isSessionStartResolverCommand(hook.command);
+              assert.ok(isNode || isSkillScript || isHookShellWrapper || isSessionStartResolver, `Hook command should use node or approved shell wrapper: ${commandText.substring(0, 100)}...`);
             }
           }
         }
@@ -1858,13 +1904,13 @@ async function runTests() {
       const checkHooks = hookArray => {
         for (const entry of hookArray) {
           for (const hook of entry.hooks) {
-            if (hook.type === 'command' && hook.command.includes('scripts/hooks/')) {
+            const commandText = getHookCommandText(hook.command);
+
+            if (hook.type === 'command' && commandText.includes('scripts/hooks/')) {
               // Check for the literal string "${CLAUDE_PLUGIN_ROOT}" in the command
-              const isSessionStartResolver = hook.command.includes('session:start')
-                && hook.command.includes('could not resolve ECC plugin root')
-                && (hook.command.startsWith('bash -lc') || hook.command.startsWith('node -e "'));
-              const hasPluginRoot = hook.command.includes('${CLAUDE_PLUGIN_ROOT}') || isSessionStartResolver;
-              assert.ok(hasPluginRoot, `Script paths should use CLAUDE_PLUGIN_ROOT: ${hook.command.substring(0, 80)}...`);
+              const isSessionStartResolver = isSessionStartResolverCommand(hook.command);
+              const hasPluginRoot = commandText.includes('${CLAUDE_PLUGIN_ROOT}') || isSessionStartResolver;
+              assert.ok(hasPluginRoot, `Script paths should use CLAUDE_PLUGIN_ROOT: ${commandText.substring(0, 80)}...`);
             }
           }
         }
@@ -1883,7 +1929,8 @@ async function runTests() {
       const hooksPath = path.join(__dirname, '..', '..', 'hooks', 'hooks.json');
       const hooks = JSON.parse(fs.readFileSync(hooksPath, 'utf8'));
       const command = hooks.hooks.SessionStart[0].hooks[0].command;
-      const base64Match = command.match(/Buffer\.from\('([^']+)'/);
+      const inlineScript = extractInlineNodeScript(command);
+      const base64Match = inlineScript && inlineScript.match(/Buffer\.from\('([^']+)'/);
 
       assert.ok(base64Match, 'SessionStart resolver should inline a base64-encoded script');
 

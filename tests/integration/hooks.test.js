@@ -39,6 +39,47 @@ async function asyncTest(name, fn) {
   }
 }
 
+function interpolateEnvValue(value, env) {
+  return String(value).replace(/\$\{([A-Z_][A-Z0-9_]*)\}/g, (_, name) => String(env[name] || ''));
+}
+
+function resolveHookCommand(command, env) {
+  return Array.isArray(command)
+    ? command.map(part => interpolateEnvValue(part, env))
+    : interpolateEnvValue(command, env);
+}
+
+function getHookCommandText(command) {
+  return Array.isArray(command) ? command.join(' ') : command;
+}
+
+function isInlineNodeCommand(command) {
+  return Array.isArray(command)
+    ? command[0] === 'node' && command[1] === '-e' && typeof command[2] === 'string'
+    : command.startsWith('node -e');
+}
+
+function isNodeScriptCommand(command) {
+  return Array.isArray(command)
+    ? command[0] === 'node' && typeof command[1] === 'string' && command[1] !== '-e'
+    : command.startsWith('node "');
+}
+
+function isShellWrapperCommand(command) {
+  return Array.isArray(command)
+    ? command[0] === 'bash' || command[0] === 'sh'
+    : command.startsWith('bash "') ||
+        command.startsWith('sh "') ||
+        command.startsWith('bash -lc ') ||
+        command.startsWith('sh -c ');
+}
+
+function isShellScriptPathCommand(command) {
+  return Array.isArray(command)
+    ? typeof command[0] === 'string' && command[0].endsWith('.sh')
+    : command.endsWith('.sh');
+}
+
 /**
  * Run a hook script with simulated Claude Code input
  * @param {string} scriptPath - Path to the hook script
@@ -91,9 +132,9 @@ function runHookWithInput(scriptPath, input = {}, env = {}, timeoutMs = 10000) {
 }
 
 /**
- * Run a hook command string exactly as declared in hooks.json.
- * Supports wrapped node script commands and shell wrappers.
- * @param {string} command - Hook command from hooks.json
+ * Run a hook command exactly as declared in hooks.json.
+ * Supports string shell commands plus array-form direct spawns.
+ * @param {string|string[]} command - Hook command from hooks.json
  * @param {object} input - Hook input object
  * @param {object} env - Environment variables
  */
@@ -101,12 +142,10 @@ function runHookCommand(command, input = {}, env = {}, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
     const isWindows = process.platform === 'win32';
     const mergedEnv = { ...process.env, CLAUDE_PLUGIN_ROOT: REPO_ROOT, ...env };
-    const resolvedCommand = command.replace(
-      /\$\{([A-Z_][A-Z0-9_]*)\}/g,
-      (_, name) => String(mergedEnv[name] || '')
-    );
-
-    const nodeMatch = resolvedCommand.match(/^node\s+"([^"]+)"\s*(.*)$/);
+    const resolvedCommand = resolveHookCommand(command, mergedEnv);
+    const nodeMatch = typeof resolvedCommand === 'string'
+      ? resolvedCommand.match(/^node\s+"([^"]+)"\s*(.*)$/)
+      : null;
     const useDirectNodeSpawn = Boolean(nodeMatch);
     const shell = isWindows ? 'cmd' : 'bash';
     const shellArgs = isWindows ? ['/d', '/s', '/c', resolvedCommand] : ['-lc', resolvedCommand];
@@ -120,9 +159,11 @@ function runHookCommand(command, input = {}, env = {}, timeoutMs = 10000) {
         ]
       : [];
 
-    const proc = useDirectNodeSpawn
-      ? spawn('node', nodeArgs, { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'] })
-      : spawn(shell, shellArgs, { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'] });
+    const proc = Array.isArray(resolvedCommand)
+      ? spawn(resolvedCommand[0], resolvedCommand.slice(1), { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'] })
+      : useDirectNodeSpawn
+        ? spawn('node', nodeArgs, { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'] })
+        : spawn(shell, shellArgs, { env: mergedEnv, stdio: ['pipe', 'pipe', 'pipe'] });
 
     let stdout = '';
     let stderr = '';
@@ -678,16 +719,13 @@ async function runTests() {
     assert.ok(asyncHook.hooks[0].timeout > 0, 'Timeout should be positive');
 
     const command = asyncHook.hooks[0].command;
-    const isNodeInline = command.startsWith('node -e');
-    const isNodeScript = command.startsWith('node "');
-    const isShellWrapper =
-      command.startsWith('bash "') ||
-      command.startsWith('sh "') ||
-      command.startsWith('bash -lc ') ||
-      command.startsWith('sh -c ');
+    const commandText = getHookCommandText(command);
+    const isNodeInline = isInlineNodeCommand(command);
+    const isNodeScript = isNodeScriptCommand(command);
+    const isShellWrapper = isShellWrapperCommand(command);
     assert.ok(
       isNodeInline || isNodeScript || isShellWrapper,
-      `Async hook command should be runnable (node -e, node script, or shell wrapper), got: ${command.substring(0, 80)}`
+      `Async hook command should be runnable (node -e, node script, or shell wrapper), got: ${commandText.substring(0, 80)}`
     );
   })) passed++; else failed++;
 
@@ -699,18 +737,15 @@ async function runTests() {
         for (const hook of hookDef.hooks) {
           assert.ok(hook.command, `Hook in ${hookType} should have command field`);
 
-          const isInline = hook.command.startsWith('node -e');
-          const isFilePath = hook.command.startsWith('node "');
-          const isShellWrapper =
-            hook.command.startsWith('bash "') ||
-            hook.command.startsWith('sh "') ||
-            hook.command.startsWith('bash -lc ') ||
-            hook.command.startsWith('sh -c ');
-          const isShellScriptPath = hook.command.endsWith('.sh');
+          const commandText = getHookCommandText(hook.command);
+          const isInline = isInlineNodeCommand(hook.command);
+          const isFilePath = isNodeScriptCommand(hook.command);
+          const isShellWrapper = isShellWrapperCommand(hook.command);
+          const isShellScriptPath = isShellScriptPathCommand(hook.command);
 
           assert.ok(
             isInline || isFilePath || isShellWrapper || isShellScriptPath,
-            `Hook command in ${hookType} should be node -e, node script, or shell wrapper/script, got: ${hook.command.substring(0, 80)}`
+            `Hook command in ${hookType} should be node -e, node script, or shell wrapper/script, got: ${commandText.substring(0, 80)}`
           );
         }
       }
