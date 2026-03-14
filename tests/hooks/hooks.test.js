@@ -1898,6 +1898,10 @@ async function runTests() {
         /flushAndExit\(\s*Number\.isInteger\(result\.status\) \? result\.status : 0,\s*result\.stdout \|\| '',\s*result\.stderr \|\| ''\s*\)/.test(resolver),
         'Resolver should flush child process output before exiting'
       );
+      assert.ok(
+        /process\.stdin\.on\('error',\s*finish\)/.test(resolver),
+        'Resolver should fall back to finish() on stdin errors so Windows shells still emit warnings'
+      );
     })
   )
     passed++;
